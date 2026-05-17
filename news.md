@@ -9,3 +9,5 @@
 • зручне налаштування  
 
 Лаунчер створений для максимально простого та комфортного доступу до **Politime**.
+
+![Лаунчер Politime](https://media.discordapp.net/attachments/1295047353413402637/1500249179824587025/3f1d441f5e02eb59be706d9588247274.jpg?ex=6a0add2d&is=6a098bad&hm=ee220d514fa7546218cdd29d9a7e418259b94ba335a4daa8a17e2904ecdfcc09&=&format=webp)

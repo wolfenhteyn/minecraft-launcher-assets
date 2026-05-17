@@ -1,0 +1,16 @@
+{
+  "version": "1.0.0",
+  "builds": {
+    "lite": {
+      "name": "Полегшена збірка",
+      "url": "https://github.com/wolfenhteyn/minecraft-launcher-assets/releases/download/v1.0.0/modpack-lite.zip",
+      "description": "Базові моди та оптимізація. Рекомендовано для слабких ПК."
+    },
+    "full": {
+      "name": "Повна збірка",
+      "url": "https://github.com/wolfenhteyn/minecraft-launcher-assets/releases/download/v1.0.0/modpack-full.zip",
+      "description": "Усі модифікації, шейдери та HD текстури. Для потужних ПК."
+    }
+  },
+  "force_update": false
+}

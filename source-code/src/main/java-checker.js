@@ -4,25 +4,43 @@ const fs = require('fs');
 
 class JavaChecker {
   /**
-   * Attempts to find a Java installation suitable for Forge 1.20.1.
-   * Forge 1.20.1 requires Java 17. Newer versions (21+) cause module errors.
+   * Finds a suitable Java installation.
    *
    * Priority: custom path → best-match from common dirs → JAVA_HOME → PATH
-   * "Best match" = Java 17.x preferred, then 18-20, then 16+. Java 21+ skipped unless nothing else found.
    *
-   * @param {string} customPath - User-specified Java path
-   * @returns {Promise<{found: boolean, path: string, version: string}>}
+   * @param {string} customPath  - User-specified Java path (takes top priority)
+   * @param {number} minJava     - Minimum required Java major version (default: 17)
+   *                               Pass 21 for NeoForge 1.21+, 17 for old Forge/vanilla
+   * @returns {Promise<{found: boolean, path: string, version: string, score: number}>}
    */
-  static async findJava(customPath = '') {
+  static async findJava(customPath = '', minJava = 17) {
     // 1. Custom path always wins (user knows best)
     if (customPath && fs.existsSync(customPath)) {
       const result = await JavaChecker.testJava(customPath);
       if (result.found) return result;
     }
 
-    // 2. Local downloaded Java
+    // 2. Check saved path from launcher's own Java download (javaw-path.txt)
     const allJavas = [];
+    try {
+      const appData = process.env.APPDATA || process.env.LOCALAPPDATA || '';
+      const pathFiles = [
+        path.join(appData, '.politime-launcher', 'java', 'javaw-path.txt'),
+      ];
+      for (const pf of pathFiles) {
+        if (fs.existsSync(pf)) {
+          const saved = fs.readFileSync(pf, 'utf8').trim();
+          if (fs.existsSync(saved)) {
+            const result = await JavaChecker.testJava(saved);
+            if (result.found) allJavas.push(result);
+          }
+        }
+      }
+    } catch (e) { /* skip */ }
+
+    // 3. Local downloaded Java (legacy — scan java/ folder)
     const localJavaDir = path.join(process.env.APPDATA || process.env.LOCALAPPDATA, '.politime-launcher', 'java');
+
     if (fs.existsSync(localJavaDir)) {
       const dirs = fs.readdirSync(localJavaDir);
       for (const dir of dirs) {
@@ -95,28 +113,40 @@ class JavaChecker {
       return { found: false, path: '', version: '' };
     }
 
-    // 5. Pick the best Java for Forge 1.20.1
-    //    Ideal: 17.x  |  Acceptable: 18, 19, 20  |  Fallback: anything
-    const pick = JavaChecker.pickBestJava(allJavas);
+    // 5. Pick the best Java for the required version
+    const pick = JavaChecker.pickBestJava(allJavas, minJava);
     console.log(`[JavaChecker] Found ${allJavas.length} Java(s):`,
       allJavas.map(j => `v${j.version} @ ${j.path}`).join(' | '));
-    console.log(`[JavaChecker] Selected: v${pick.version} @ ${pick.path}`);
+    console.log(`[JavaChecker] Selected: v${pick.version} @ ${pick.path} (minJava=${minJava})`);
     return pick;
   }
 
   /**
-   * Pick the best Java from a list.
-   * Forge 1.20.1 works best with Java 17. Versions 21+ break module system.
+   * Pick the best Java from a list based on the minimum required major version.
+   *
+   * minJava=17 (old Forge / vanilla): prefers Java 17, accepts 18-20, deprioritises 21+
+   * minJava=21 (NeoForge 1.21+):      prefers Java 21, accepts 21-24, also accepts 25+
    */
-  static pickBestJava(javas) {
+  static pickBestJava(javas, minJava = 17) {
     const scored = javas.map(j => {
       const major = JavaChecker.getMajorVersion(j.version);
       let score = 0;
-      if (major === 17)                  score = 100;  // perfect
-      else if (major >= 18 && major <= 20) score = 80;  // compatible
-      else if (major === 16)             score = 50;   // might work
-      else if (major >= 21)             score = 10;   // likely broken for Forge
-      else                               score = 5;    // too old
+
+      if (minJava >= 21) {
+        // NeoForge 1.21+: needs Java 21+
+        if (major >= 21 && major <= 24) score = 100;  // ideal range
+        else if (major >= 25)           score = 80;   // newer, still works
+        else if (major >= 17)           score = 5;    // too old for NeoForge 1.21
+        else                             score = 1;    // definitely too old
+      } else {
+        // Old Forge / Vanilla: Java 17 preferred
+        if (major === 17)                    score = 100;  // perfect
+        else if (major >= 18 && major <= 20) score = 80;   // compatible
+        else if (major === 16)               score = 50;   // might work
+        else if (major >= 21)               score = 10;   // likely broken for old Forge
+        else                                 score = 5;    // too old
+      }
+
       return { ...j, score };
     });
 

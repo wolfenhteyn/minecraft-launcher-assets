@@ -240,9 +240,10 @@ class Updater {
 
     if (isNeoForge) {
       // neoforge-21.1.232-installer.jar → loaderVersion = '21.1.232'
+      // NeoForge installer creates dir: neoforge-21.1.232 (NOT 1.21.1-neoforge-21.1.232)
       const m = forgeUrl.match(/neoforge-([\d.]+)-installer/);
       loaderVersion = m ? m[1] : '';
-      versionDirName = loaderVersion ? `${mcVersion}-neoforge-${loaderVersion}` : '';
+      versionDirName = loaderVersion ? `neoforge-${loaderVersion}` : '';
       console.log(`[Updater] Detected NeoForge ${loaderVersion} for MC ${mcVersion}`);
     } else {
       // forge-1.21.1-XX.X.XXX-installer.jar → loaderVersion = 'XX.X.XXX'
@@ -314,6 +315,38 @@ class Updater {
         }
       });
     });
+
+    // ── Step 3.5: Patch NeoForge JSON for MCLC compatibility ──
+    // MCLC v3.18 has a bug with inheritsFrom where it still expects 
+    // downloads.client and assetIndex in the top-level version JSON.
+    try {
+      if (versionDirName && isNeoForge) {
+        const neoJsonPath = path.join(gameDir, 'versions', versionDirName, `${versionDirName}.json`);
+        const vanillaJsonPath = path.join(gameDir, 'versions', mcVersion, `${mcVersion}.json`);
+        
+        if (fs.existsSync(neoJsonPath) && fs.existsSync(vanillaJsonPath)) {
+          const neoData = JSON.parse(fs.readFileSync(neoJsonPath, 'utf8'));
+          const vanillaData = JSON.parse(fs.readFileSync(vanillaJsonPath, 'utf8'));
+          
+          let patched = false;
+          if (!neoData.downloads && vanillaData.downloads) {
+            neoData.downloads = vanillaData.downloads;
+            patched = true;
+          }
+          if (!neoData.assetIndex && vanillaData.assetIndex) {
+            neoData.assetIndex = vanillaData.assetIndex;
+            patched = true;
+          }
+          
+          if (patched) {
+            fs.writeFileSync(neoJsonPath, JSON.stringify(neoData, null, 2), 'utf8');
+            console.log('[Updater] Patched NeoForge JSON with vanilla downloads/assetIndex for MCLC compatibility.');
+          }
+        }
+      }
+    } catch (e) {
+      console.error('[Updater] Failed to patch NeoForge JSON:', e);
+    }
 
     onProgress({ stage: 'forge', percent: 55, message: `${loaderLabel} встановлено!` });
   }
@@ -510,47 +543,95 @@ class Updater {
     await this.checkAndUpdate(buildKey, javaPath, onProgress);
   }
 
-  // ────────────────────────────────────────────────────
-  // Auto-install Java 17 (JRE)
+  // ──────────────────────────────────────────────────
+  // Auto-install Java 21+ (JRE/JDK)
+  // Priority:
+  //   1. java_url from remote config (e.g. Oracle JDK 26 ZIP or custom URL)
+  //   2. Adoptium Temurin 21 LTS (free, no license, direct ZIP)
+  // Extracts to <gameDir>/java/ and saves path in javaw-path.txt
   // ────────────────────────────────────────────────────
   async installJava(onProgress) {
     const javaDir = path.join(this.configManager.getGameDir(), 'java');
-    
-    // Check if it's already there
-    if (fs.existsSync(javaDir) && fs.readdirSync(javaDir).length > 0) {
-      return;
+    const pathFile = path.join(javaDir, 'javaw-path.txt');
+
+    // Check if already installed via saved path file
+    if (fs.existsSync(pathFile)) {
+      const saved = fs.readFileSync(pathFile, 'utf8').trim();
+      if (fs.existsSync(saved)) return;
     }
 
     onProgress({ stage: 'java', percent: 0, message: 'Отримання посилання на Java...' });
 
-    // Try to get java URL from remote config or fallback to Eclipse Adoptium API
+    // 1. Try java_url from remote config (e.g. Oracle JDK ZIP URL)
+    // 2. Fall back to Adoptium Temurin 21 LTS (free, no license required)
     let javaUrl = this.remoteConfig?.java_url;
+    let javaLabel = 'Java';
+
     if (!javaUrl) {
-      // Fetch latest Java 17 JRE for Windows x64 from Adoptium
-      const apiUrl = 'https://api.adoptium.net/v3/assets/latest/17/hotspot?architecture=x64&image_type=jre&os=windows';
+      // Adoptium Temurin 21 LTS
+      const apiUrl = 'https://api.adoptium.net/v3/assets/latest/21/hotspot?architecture=x64&image_type=jre&os=windows';
       try {
         const apiResponse = await this._fetchUrl(apiUrl);
         const data = JSON.parse(apiResponse);
         javaUrl = data[0].binary.package.link;
+        javaLabel = 'Java 21 (Temurin)';
       } catch (e) {
         throw new Error('Не вдалося знайти посилання на завантаження Java: ' + e.message);
       }
+    } else {
+      // Detect version from URL for the label
+      const verMatch = javaUrl.match(/java[\/\-](\d+)/i) || javaUrl.match(/jdk-?(\d+)/i);
+      javaLabel = verMatch ? `Java ${verMatch[1]}` : 'Java';
     }
 
-    fs.mkdirSync(javaDir, { recursive: true });
     const zipPath = path.join(javaDir, 'jre.zip');
 
-    onProgress({ stage: 'java', percent: 10, message: 'Завантаження Java 17...' });
+    onProgress({ stage: 'java', percent: 5, message: `Завантаження ${javaLabel}...` });
     await this.downloadFileWithProgress(javaUrl, zipPath, (pct, eta) => {
-      onProgress({ stage: 'java', percent: 10 + Math.round(pct * 0.74), message: `Завантаження Java: ${pct}%`, eta });
+      onProgress({ stage: 'java', percent: 5 + Math.round(pct * 0.75), message: `Завантаження ${javaLabel}: ${pct}%`, eta });
     });
     this._checkCancelled();
 
-    onProgress({ stage: 'java', percent: 85, message: 'Розпакування Java...' });
+    onProgress({ stage: 'java', percent: 81, message: 'Розпакування Java...' });
     await this.extractZip(zipPath, javaDir);
 
     try { fs.unlinkSync(zipPath); } catch (e) {}
-    onProgress({ stage: 'java', percent: 100, message: 'Java встановлено!' });
+
+    // Find javaw.exe in extracted structure and save path for future lookups
+    const javawPath = this._findJavaw(javaDir);
+    if (javawPath) {
+      fs.writeFileSync(pathFile, javawPath, 'utf8');
+      console.log('[Updater] Java installed at:', javawPath);
+    } else {
+      console.warn('[Updater] javaw.exe not found after extraction in:', javaDir);
+    }
+
+    onProgress({ stage: 'java', percent: 100, message: `${javaLabel} встановлено!` });
+  }
+
+  /**
+   * Recursively find javaw.exe inside a directory (post-extraction helper).
+   * JDKs are typically nested: java/ -> jdk-21.0.7+6-jre/ -> bin/ -> javaw.exe
+   */
+  _findJavaw(dir, depth = 0) {
+    if (depth > 5) return null;
+    try {
+      const binDir = path.join(dir, 'bin');
+      if (fs.existsSync(binDir)) {
+        for (const exe of ['javaw.exe', 'java.exe']) {
+          const p = path.join(binDir, exe);
+          if (fs.existsSync(p)) return p;
+        }
+      }
+      const entries = fs.readdirSync(dir, { withFileTypes: true });
+      for (const entry of entries) {
+        if (entry.isDirectory() && entry.name !== 'bin') {
+          const found = this._findJavaw(path.join(dir, entry.name), depth + 1);
+          if (found) return found;
+        }
+      }
+    } catch (e) { /* skip */ }
+    return null;
   }
 
   // ────────────────────────────────────────────────────

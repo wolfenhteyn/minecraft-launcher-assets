@@ -400,7 +400,6 @@ function setupIPC() {
     return await JavaChecker.findJava(customPath);
   });
 
-  // ── Game Launch ──
   ipcMain.handle('game:clearLibraries', async () => {
     try {
       const gameDir = configManager.getGameDir();
@@ -436,22 +435,29 @@ function setupIPC() {
       }
       rpcSelectedBuild = configManager.get('selectedBuild', 'lite');
       currentRpcState = 'launching';
-
       rpcStartTimestamp = Date.now();
       updateDiscordPresence();
 
+      // Detect loader type early to pick the right Java version
+      await updater.fetchRemoteConfig();
+      const earlyConfig = updater.getRemoteConfig();
+      const earlyForgeUrl = earlyConfig?.forge_url || '';
+      const isNeoForgeLaunch = /neoforge/i.test(earlyForgeUrl);
+      // NeoForge 1.21+ requires Java 21+; old Forge/vanilla works best on Java 17
+      const minJava = isNeoForgeLaunch ? 21 : 17;
+
       // Check Java
       const customJavaPath = configManager.get('javaPath', '');
-      let javaResult = await JavaChecker.findJava(customJavaPath);
+      let javaResult = await JavaChecker.findJava(customJavaPath, minJava);
 
       if (!javaResult.found || javaResult.score < 80) {
-        sendProgress({ stage: 'java', percent: 0, message: 'Оптимальна Java не знайдена. Завантаження Java 17...' });
-        await updater.fetchRemoteConfig();
+        const javaLabel = minJava >= 21 ? 'Java 21' : 'Java 17';
+        sendProgress({ stage: 'java', percent: 0, message: `Оптимальна Java не знайдена. Завантаження ${javaLabel}...` });
         await updater.installJava(sendProgress);
-        javaResult = await JavaChecker.findJava('');
+        javaResult = await JavaChecker.findJava('', minJava);
 
         if (!javaResult.found) {
-          return { success: false, error: 'Помилка встановлення Java. Встановіть Java 17+ вручну або вкажіть шлях у налаштуваннях.' };
+          return { success: false, error: `Помилка встановлення Java. Встановіть Java ${minJava}+ вручну або вкажіть шлях у налаштуваннях.` };
         }
       }
 
@@ -459,7 +465,6 @@ function setupIPC() {
       const selectedBuild = configManager.get('selectedBuild', 'lite');
 
       // Check for updates / install forge + modpack
-      // Pass the selectedBuild — updater will handle switching if needed
       sendProgress({ stage: 'update', percent: 0, message: 'Перевірка оновлень...' });
       await updater.checkAndUpdate(selectedBuild, javaResult.path, sendProgress);
 
@@ -469,11 +474,14 @@ function setupIPC() {
       const isNeoForge = /neoforge/i.test(forgeUrl);
       let forgeVersion = '';
       if (isNeoForge) {
+        // NeoForge installs as version id "neoforge-21.1.232" — pass the full id
         const m = forgeUrl.match(/neoforge-([\d.]+)-installer/);
-        forgeVersion = m ? m[1] : '';
+        forgeVersion = m ? `neoforge-${m[1]}` : '';
       } else {
-        const m = forgeUrl.match(/forge-[\d.]+-([\d.]+)/);
-        forgeVersion = m ? m[1] : '';
+        // Old Forge: version id is e.g. "1.21.1-forge-52.0.1"
+        const mcVer = remoteConfig?.minecraft_version || '1.21.1';
+        const m = forgeUrl.match(/forge-[\d.]+-([.\d]+)/);
+        forgeVersion = m ? `${mcVer}-forge-${m[1]}` : '';
       }
 
       // Launch the game
@@ -515,6 +523,7 @@ function setupIPC() {
       return { success: false, error: err.message || 'Невідома помилка запуску' };
     }
   });
+
 
   ipcMain.on('game:closed', () => {
     if (mainWindow && !mainWindow.isDestroyed()) { mainWindow.show(); mainWindow.focus(); }

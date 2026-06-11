@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="uk">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Politime Launcher</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Outfit:wght@400;500;600;700;800;900&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <!-- ═══ Titlebar ═══ -->
+  <header class="titlebar" id="titlebar">
+    <div class="titlebar-brand">
+      <span class="titlebar-logo">☀</span>
+      <span class="titlebar-name">Politime</span>
+    </div>
+    <div class="titlebar-controls">
+      <!-- Theme Picker -->
+      <div class="theme-picker-wrap" id="theme-picker-wrap">
+        <button class="tb-btn" id="btn-theme-toggle" title="Змінити тему">
+          <span id="theme-icon-emoji" style="font-size:14px;line-height:1">🔥</span>
+        </button>
+        <div class="theme-dropdown" id="theme-dropdown">
+          <div class="theme-dropdown-title">Оберіть тему</div>
+          <div class="theme-dropdown-list">
+            <button class="theme-option" data-theme="dark" id="theme-opt-dark">
+              <span class="theme-opt-emoji">🔥</span>
+              <div class="theme-opt-info">
+                <span class="theme-opt-name">Вечірнє багаття</span>
+                <span class="theme-opt-desc">Теплі тони заходу сонця</span>
+              </div>
+            </button>
+            <button class="theme-option" data-theme="light" id="theme-opt-light">
+              <span class="theme-opt-emoji">❄️</span>
+              <div class="theme-opt-info">
+                <span class="theme-opt-name">Зимовий бриз</span>
+                <span class="theme-opt-desc">Кристальна крижана свіжість</span>
+              </div>
+            </button>
+            <button class="theme-option" data-theme="forest" id="theme-opt-forest">
+              <span class="theme-opt-emoji">🌿</span>
+              <div class="theme-opt-info">
+                <span class="theme-opt-name">Дрімучий ліс</span>
+                <span class="theme-opt-desc">Таємнича смарагдова ніч</span>
+              </div>
+            </button>
+            <button class="theme-option" data-theme="nebula" id="theme-opt-nebula">
+              <span class="theme-opt-emoji">🌌</span>
+              <div class="theme-opt-info">
+                <span class="theme-opt-name">Галактична туманність</span>
+                <span class="theme-opt-desc">Космічне фіолетове сяйво</span>
+              </div>
+            </button>
+            <button class="theme-option" data-theme="ocean" id="theme-opt-ocean">
+              <span class="theme-opt-emoji">🌊</span>
+              <div class="theme-opt-info">
+                <span class="theme-opt-name">Глибокий океан</span>
+                <span class="theme-opt-desc">Загадкові глибини моря</span>
+              </div>
+            </button>
+            <button class="theme-option" data-theme="cherry" id="theme-opt-cherry">
+              <span class="theme-opt-emoji">🌸</span>
+              <div class="theme-opt-info">
+                <span class="theme-opt-name">Сакура</span>
+                <span class="theme-opt-desc">Ніжне японське цвітіння</span>
+              </div>
+            </button>
+            <button class="theme-option" data-theme="aurora" id="theme-opt-aurora">
+              <span class="theme-opt-emoji">🌠</span>
+              <div class="theme-opt-info">
+                <span class="theme-opt-name">Полярне сяйво</span>
+                <span class="theme-opt-desc">Магічні хвилі аврори</span>
+              </div>
+            </button>
+            <button class="theme-option" data-theme="lava" id="theme-opt-lava">
+              <span class="theme-opt-emoji">🌋</span>
+              <div class="theme-opt-info">
+                <span class="theme-opt-name">Вулканічна лава</span>
+                <span class="theme-opt-desc">Розпечені жарини й іскри</span>
+              </div>
+            </button>
+            <button class="theme-option" data-theme="storm" id="theme-opt-storm">
+              <span class="theme-opt-emoji">⛈️</span>
+              <div class="theme-opt-info">
+                <span class="theme-opt-name">Грозова ніч</span>
+                <span class="theme-opt-desc">Зливовий дощ і блискавки</span>
+              </div>
+            </button>
+            <button class="theme-option" data-theme="candy" id="theme-opt-candy">
+              <span class="theme-opt-emoji">🍬</span>
+              <div class="theme-opt-info">
+                <span class="theme-opt-name">Цукерковий сон</span>
+                <span class="theme-opt-desc">Яскравий казковий вихор</span>
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+      <button class="tb-btn" id="btn-minimize" title="Згорнути">
+        <svg width="11" height="11" viewBox="0 0 11 1">
+          <rect width="11" height="1.5" rx=".75" fill="currentColor" />
+        </svg>
+      </button>
+      <button class="tb-btn tb-close" id="btn-close" title="Закрити">
+        <svg width="11" height="11" viewBox="0 0 11 11">
+          <path d="M1 1l9 9M10 1l-9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ═══ Main Layout ═══ -->
+  <main class="app">
+    <!-- Particles canvas -->
+    <canvas id="particles-canvas"></canvas>
+
+    <!-- Ambient background -->
+    <div class="ambient"></div>
+    <div class="ambient-orb orb-1"></div>
+    <div class="ambient-orb orb-2"></div>
+    <div class="ambient-orb orb-3"></div>
+
+    <!-- Left: Brand + Play -->
+    <section class="panel-left">
+      <div class="main-content-left">
+        <div class="brand">
+        <img src="../../assets/logo.webp" alt="Politime Logo" class="brand-logo" />
+        <h1 class="brand-title">POLITIME</h1>
+        <div class="brand-season">SEASON 6</div>
+        <div class="brand-sub">
+          <span class="brand-server" id="server-status" title="Натисніть для списку гравців">ptime.pp.ua</span>
+          <span class="brand-divider">·</span>
+          <span class="brand-version">1.20.1</span>
+        </div>
+
+        <!-- Players popup -->
+        <div class="players-popup" id="players-popup" style="display:none">
+          <div class="players-popup-header">
+            <span class="players-popup-title" id="players-popup-title">Гравці онлайн</span>
+            <button class="players-popup-close" id="players-popup-close">&times;</button>
+          </div>
+          <div class="players-popup-list" id="players-popup-list">
+            <div class="players-popup-empty">Завантаження...</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <!-- Build Selector -->
+        <div class="control-label">Виберіть збірку</div>
+        <div class="build-selector" id="build-selector">
+          <button class="build-option" data-build="lite" id="build-lite">
+            <div class="build-icon">🪶</div>
+            <div class="build-info">
+              <span class="build-name">Полегшена</span>
+              <span class="build-desc">Для слабких ПК</span>
+            </div>
+          </button>
+          <button class="build-option" data-build="full" id="build-full">
+            <div class="build-icon">💎</div>
+            <div class="build-info">
+              <span class="build-name">Повна</span>
+              <span class="build-desc">Для потужних ПК</span>
+            </div>
+          </button>
+        </div>
+
+        <!-- Username -->
+        <div class="field">
+          <div class="field-inner">
+            <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17"
+              height="17">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            <input id="username-input" type="text" placeholder="Нікнейм" maxlength="16" autocomplete="off"
+              spellcheck="false" style="padding-right: 36px;">
+            <button id="btn-accounts-toggle" class="accounts-toggle-btn" type="button" title="Вибрати збережений акаунт">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="11" height="11">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            <div id="accounts-dropdown" class="accounts-dropdown" style="display: none;">
+              <div class="accounts-list" id="accounts-list">
+                <!-- Dynamically populated -->
+              </div>
+              <div class="accounts-dropdown-footer">
+                <button id="btn-add-account-action" class="add-account-action-btn" type="button">+ Новий акаунт</button>
+              </div>
+            </div>
+          </div>
+          <span class="field-hint" id="username-hint"></span>
+        </div>
+
+
+        <!-- Play -->
+        <button class="btn-play" id="btn-play">
+          <span class="btn-play-label" id="play-label">ГРАТИ</span>
+          <div class="btn-play-shine"></div>
+        </button>
+      </div>
+      </div>
+
+      <nav class="bottom-nav">
+        <div class="dock">
+          <button class="dock-btn" id="btn-settings" title="Налаштування">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </button>
+          <button class="dock-btn" id="btn-open-folder" title="Папка з грою">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            </svg>
+          </button>
+          <button class="dock-btn" id="btn-screenshots" title="Галерея скриншотів">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20">
+              <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+              <circle cx="12" cy="13" r="4" />
+            </svg>
+          </button>
+          <div class="dock-divider"></div>
+          <div class="music-player" id="music-player">
+            <button class="music-btn" id="btn-music-toggle" title="Увімкнути музику">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M9 18V5l12-2v13" /><circle cx="6" cy="18" r="3" /><circle cx="18" cy="16" r="3" />
+              </svg>
+            </button>
+            <div class="music-viz" id="music-viz"></div>
+            <input type="range" class="music-vol" id="music-vol" min="0" max="100" value="30" title="Гучність">
+          </div>
+        </div>
+        <span class="launcher-version-tag" id="launcher-version-text">v1.0.2</span>
+      </nav>
+    </section>
+
+    <!-- Right: Dashboard -->
+    <section class="panel-right">
+      <div class="dashboard-card">
+        <div class="dash-hero" id="news-container">
+          <div class="dash-badge">ВІДКРИТТЯ</div>
+          <h2>Новий сезон Літа</h2>
+          <p>Поринай у спекотні пригоди! Ми додали нові квести, оновили модифікації та переробили економіку. Сервер вже
+            відкрито.</p>
+        </div>
+
+        <div class="dash-links">
+          <button class="dash-btn" onclick="window.launcherAPI.openExternal('https://discord.gg/rz2jfVyGef')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" width="16" height="16">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span>Discord</span>
+          </button>
+          <button class="dash-btn" onclick="window.launcherAPI.openExternal('https://web.ptime.pp.ua/')">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+              stroke-linejoin="round" width="16" height="16">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="2" y1="12" x2="22" y2="12"></line>
+              <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z">
+              </path>
+            </svg>
+            <span>Наш Сайт</span>
+          </button>
+        </div>
+
+        <div class="dash-footer" id="status-card">
+          <div class="status-head">
+            <div class="status-dot" id="status-dot"></div>
+            <span class="status-text" id="status-text">Готовий до гри</span>
+          </div>
+          <div class="progress-wrap" id="progress-wrap" style="display:none">
+            <div class="progress-track">
+              <div class="progress-bar" id="progress-bar"></div>
+            </div>
+            <div class="progress-meta">
+              <span id="progress-msg">Очікування...</span>
+              <span id="progress-pct">0%</span>
+            </div>
+            <div class="progress-eta" id="progress-eta"></div>
+            <div class="download-controls" id="download-controls" style="display:none">
+              <button class="dl-btn dl-btn-pause" id="btn-pause-download" title="Призупинити">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14">
+                  <rect x="6" y="4" width="4" height="16" rx="1" />
+                  <rect x="14" y="4" width="4" height="16" rx="1" />
+                </svg>
+                <span id="pause-label">Пауза</span>
+              </button>
+              <button class="dl-btn dl-btn-cancel" id="btn-cancel-download" title="Скасувати">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="14" height="14">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+                Скасувати
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ═══ Welcome Modal (First Run) ═══ -->
+  <div class="modal-backdrop" id="welcome-modal" style="display:none">
+    <div class="modal welcome-modal">
+      <div class="welcome-header">
+        <div class="welcome-emoji">🌅</div>
+        <h2 class="welcome-title">Ласкаво просимо!</h2>
+        <p class="welcome-sub">Налаштуйте лаунчер перед першою грою.</p>
+      </div>
+
+      <div class="welcome-body">
+        <!-- Step 1: Nickname -->
+        <div class="welcome-group">
+          <label class="welcome-label">Ваш нікнейм</label>
+          <div class="field-inner">
+            <svg class="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17"
+              height="17">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+              <circle cx="12" cy="7" r="4" />
+            </svg>
+            <input id="welcome-username" type="text" placeholder="Введіть нікнейм" maxlength="16" autocomplete="off"
+              spellcheck="false">
+          </div>
+          <span class="field-hint" id="welcome-username-hint"></span>
+        </div>
+
+        <!-- Step 2: Build -->
+        <div class="welcome-group">
+          <label class="welcome-label">Оберіть збірку</label>
+          <div class="welcome-builds">
+            <button class="wb-card" data-build="lite" id="wb-lite">
+              <div class="wb-icon">🪶</div>
+              <div class="wb-title">Полегшена</div>
+              <div class="wb-desc">Для слабких ПК</div>
+            </button>
+            <button class="wb-card" data-build="full" id="wb-full">
+              <div class="wb-icon">💎</div>
+              <div class="wb-title">Повна</div>
+              <div class="wb-desc">Для потужних ПК</div>
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 3: Install directory -->
+        <div class="welcome-group">
+          <label class="welcome-label">Папка встановлення Minecraft</label>
+          <div class="wb-dir-row">
+            <code class="wb-dir-path" id="wb-dir-path">За замовчуванням (AppData)</code>
+            <button class="wb-dir-btn" id="wb-pick-dir">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+              Обрати...
+            </button>
+          </div>
+          <p class="wb-dir-hint">Minecraft встановиться у папку <code>.politime-launcher</code> на обраному диску.</p>
+        </div>
+      </div>
+
+      <!-- Footer always visible outside scroll area -->
+      <div class="welcome-footer">
+        <button class="btn-welcome-start" id="btn-welcome-start" disabled>Почати гру →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Settings Modal ═══ -->
+  <div class="modal-backdrop" id="settings-modal" style="display:none">
+    <div class="modal settings-modal">
+      <div class="modal-head">
+        <h2>Налаштування</h2>
+        <button class="modal-x" id="btn-settings-close">
+          <svg width="14" height="14" viewBox="0 0 11 11">
+            <path d="M1 1l9 9M10 1l-9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <!-- RAM -->
+        <div class="s-group">
+          <h3 class="s-group-title">Пам'ять (RAM)</h3>
+          <div class="ram-system-info" id="ram-system-info">Визначення системної пам'яті...</div>
+          <div class="s-row">
+            <span class="s-label">Мінімум</span>
+            <input type="range" id="ram-min" min="1" max="16" value="2">
+            <span class="s-val" id="ram-min-val">2 GB</span>
+          </div>
+          <div class="s-row">
+            <span class="s-label">Максимум</span>
+            <input type="range" id="ram-max" min="1" max="16" value="4">
+            <span class="s-val" id="ram-max-val">4 GB</span>
+          </div>
+          <div class="ram-hint" id="ram-hint"></div>
+        </div>
+        <!-- Build -->
+        <div class="s-group">
+          <h3 class="s-group-title">Збірка</h3>
+          <div class="s-row">
+            <span class="s-label">Поточна</span>
+            <select id="settings-build" class="s-select">
+              <option value="lite">🪶 Полегшена</option>
+              <option value="full">💎 Повна</option>
+            </select>
+          </div>
+        </div>
+        <!-- Java -->
+        <div class="s-group">
+          <h3 class="s-group-title">Java</h3>
+          <div class="s-row"><span class="s-label">Статус</span><span id="java-status"
+              class="java-badge">Перевірка...</span></div>
+        </div>
+        <!-- Maintenance -->
+        <div class="s-group">
+          <h3 class="s-group-title">Обслуговування</h3>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn-danger" id="btn-force-update" style="flex: 1; min-width: 160px; width: auto;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <polyline points="23 4 23 10 17 10" />
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" />
+              </svg>
+              Примусове оновлення
+            </button>
+            <button class="btn-secondary" id="btn-clear-libraries" style="flex: 1; min-width: 160px; color: var(--sun-2); border-color: rgba(0, 176, 255, 0.3);">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                <path d="M19 7l-.867 12.142A2 2 0 0 1 16.138 21H7.862a2 2 0 0 1-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v3M4 7h16" />
+              </svg>
+              Очистити бібліотеки
+            </button>
+          </div>
+          <p class="s-note">«Примусове оновлення» перекачує моди. «Очистити бібліотеки» виправляє помилки запуску (наприклад, ZLIB / EOFException) шляхом очищення кешу ядра гри.</p>
+        </div>
+        <!-- Sound Toggle -->
+        <div class="s-group">
+          <h3 class="s-group-title">Звук</h3>
+          <div class="s-row">
+            <span class="s-label">Звуки натискання (кліки)</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="ui-sounds-clicks-toggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <p class="s-note">М'які звуки кліку кнопок та вибору збірок</p>
+          <div class="s-row" style="margin-top: 10px;">
+            <span class="s-label">Системні звуки</span>
+            <label class="toggle-switch">
+              <input type="checkbox" id="ui-sounds-system-toggle" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </div>
+          <p class="s-note">Анімації перемикання теми, модальні вікна, запуск гри та помилки</p>
+        </div>
+        <!-- Debug Mode -->
+        <div class="s-group debug-group">
+          <h3 class="s-group-title" style="color: #f7a072;">Режим розробника (Debug)</h3>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-secondary" id="btn-debug-update" style="flex:1;">Тест оновлення лаунчера</button>
+            <button class="btn-secondary" id="btn-debug-cache" style="flex:1;">Очистити весь кеш</button>
+          </div>
+        </div>
+        <!-- Install Directory -->
+        <div class="s-group">
+          <h3 class="s-group-title">Директорія встановлення Minecraft</h3>
+          <div class="s-row" style="gap:8px;flex-wrap:wrap;">
+            <code class="s-dir" id="game-dir" style="flex:1;min-width:0;"></code>
+            <button class="btn-secondary" id="btn-pick-dir" style="white-space:nowrap;">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+              </svg>
+              Обрати...
+            </button>
+            <button class="btn-secondary" id="btn-reset-dir" style="white-space:nowrap;opacity:.7;">За
+              замовчуванням</button>
+          </div>
+          <p class="s-note">Майнкрафт встановиться у папку <code>.politime-launcher</code> всередині обраної течки.
+            Зміна набуде діяти після збереження.</p>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn-save" id="btn-settings-save">Зберегти</button>
+      </div>
+    </div>
+  </div>
+  <!-- ═══ Screenshots Modal ═══ -->
+  <div class="modal-backdrop" id="screenshots-modal" style="display:none">
+    <div class="modal screenshots-modal">
+      <div class="modal-head">
+        <h2>Галерея скриншотів</h2>
+        <div style="display: flex; gap: 8px; align-items: center;">
+          <button class="btn-secondary btn-small" id="btn-screenshots-open-folder">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13" style="margin-right: 4px;">
+              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            </svg>
+            Папка скриншотів
+          </button>
+          <button class="modal-x" id="btn-screenshots-close">
+            <svg width="14" height="14" viewBox="0 0 11 11">
+              <path d="M1 1l9 9M10 1l-9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div class="screenshots-grid" id="screenshots-grid">
+          <!-- Dynamically populated -->
+        </div>
+        <div class="screenshots-empty" id="screenshots-empty" style="display:none">
+          <div class="empty-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" width="48" height="48">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.821 1.316z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z" />
+            </svg>
+          </div>
+          <p>Скриншотів ще немає</p>
+          <p class="empty-sub">Зробіть скриншот у грі, натиснувши клавішу <span>F2</span>.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ Screenshot View Modal (Fullscreen/Large) ═══ -->
+  <div class="modal-backdrop" id="screenshot-view-modal" style="display:none; z-index: 600;">
+    <div class="modal screenshot-view-modal">
+      <div class="screenshot-view-ambient" id="screenshot-view-ambient"></div>
+      <div class="modal-head" style="border:none; z-index: 2; position: relative;">
+        <div style="display: flex; flex-direction: column; gap: 2px; min-width: 0;">
+          <span class="screenshot-view-title" id="screenshot-view-title"></span>
+          <span class="screenshot-view-counter" id="screenshot-view-counter"></span>
+        </div>
+        <div style="display: flex; gap: 8px; align-items: center; z-index: 2;">
+          <button class="btn-secondary btn-small" id="btn-screenshot-view-copy">Копіювати</button>
+          <button class="btn-danger btn-small" id="btn-screenshot-view-delete">Видалити</button>
+          <button class="modal-x" id="btn-screenshot-view-close">
+            <svg width="14" height="14" viewBox="0 0 11 11">
+              <path d="M1 1l9 9M10 1l-9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="view-body" style="z-index: 2; position: relative;">
+        <button class="view-nav-btn prev" id="btn-screenshot-view-prev" title="Попередній скриншот">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
+            <polyline points="15 18 9 12 15 6" />
+          </svg>
+        </button>
+        <div class="view-img-container">
+          <img id="screenshot-view-img" src="" alt="Screenshot">
+        </div>
+        <button class="view-nav-btn next" id="btn-screenshot-view-next" title="Наступний скриншот">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" width="20" height="20">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
+
+  <script src="particles.js"></script>
+  <script src="ui-sounds.js"></script>
+  <script src="renderer.js"></script>
+</body>
+
+</html>

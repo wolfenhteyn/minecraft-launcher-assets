@@ -2,7 +2,7 @@
   "version": "1.0.1",
   "minecraft_version": "1.21.1",
   "forge_url": "https://maven.neoforged.net/releases/net/neoforged/neoforge/21.1.232/neoforge-21.1.232-installer.jar",
-  "launcher_version": "1.0.8",
+  "launcher_version": "1.0.7",
   "launcher_url": "https://github.com/wolfenhteyn/minecraft-launcher-assets/releases/download/1.0.7/LauncherSetup.exe",
   "builds": {
     "lite": {

@@ -1,21 +1,8 @@
 {
-  "version": "1.0.1",
+  "launcher_version": "1.0.8",
+  "launcher_url": "https://github.com/wolfenhteyn/minecraft-launcher-assets/releases/download/1.0.8/LauncherSetup.exe",
   "minecraft_version": "1.21.1",
   "forge_url": "https://maven.neoforged.net/releases/net/neoforged/neoforge/21.1.232/neoforge-21.1.232-installer.jar",
-  "launcher_version": "1.0.7",
-  "launcher_url": "https://github.com/wolfenhteyn/minecraft-launcher-assets/releases/download/1.0.7/LauncherSetup.exe",
   "java_url": "https://download.oracle.com/java/26/latest/jdk-26_windows-x64_bin.zip",
-  "builds": {
-    "lite": {
-      "name": "Полегшена збірка",
-      "url": "https://github.com/lloy9d/polimods/releases/download/v3.0/poli-fusion.zip",
-      "description": "Базові моди та оптимізація. Рекомендовано для слабких ПК."
-    },
-    "full": {
-      "name": "Повна збірка",
-      "url": "https://github.com/lloy9d/polimods/releases/download/v3.0/poli-lite.zip",
-      "description": "Усі модифікації, шейдери та HD текстури. Для потужних ПК."
-    }
-  },
   "force_update": false
 }

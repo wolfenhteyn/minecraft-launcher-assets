@@ -584,23 +584,24 @@ function setupIPC() {
   // ── Server Query (Minecraft SLP) ──
   ipcMain.handle('server:query', async () => {
     return new Promise((resolve) => {
-      const host = 'ptime.pp.ua';
-      const port = 20001;
+      const host = 'tcpshield.ptime.pp.ua';
+      const port = 25565;
+      const handshakeHost = 'ptime.pp.ua';
       const timeout = 5000;
 
       try {
         const socket = net.createConnection({ host, port, timeout }, () => {
           // Handshake packet
-          const hostBuf = Buffer.from(host, 'utf8');
-          const dataLength = 1 + varintSize(47) + varintSize(hostBuf.length) + hostBuf.length + 2 + 1;
+          const hostBuf = Buffer.from(handshakeHost, 'utf8');
+          const dataLength = 1 + varintSize(767) + varintSize(hostBuf.length) + hostBuf.length + 2 + 1;
           const handshake = Buffer.alloc(varintSize(dataLength) + dataLength);
           let offset = 0;
           offset = writeVarint(handshake, dataLength, offset);
           offset = writeVarint(handshake, 0x00, offset); // packet id
-          offset = writeVarint(handshake, 47, offset);    // protocol version
+          offset = writeVarint(handshake, 767, offset);    // protocol version
           offset = writeVarint(handshake, hostBuf.length, offset);
           hostBuf.copy(handshake, offset); offset += hostBuf.length;
-          handshake.writeUInt16BE(port, offset); offset += 2;
+          handshake.writeUInt16BE(25565, offset); offset += 2;
           offset = writeVarint(handshake, 1, offset); // next state = status
 
           // Status request packet
@@ -611,7 +612,10 @@ function setupIPC() {
 
           let receivedData = Buffer.alloc(0);
 
-          socket.on('data', (chunk) => {
+          let resolved = false;
+
+          socket.on('data', async (chunk) => {
+            if (resolved) return;
             receivedData = Buffer.concat([receivedData, chunk]);
 
             try {
@@ -619,6 +623,7 @@ function setupIPC() {
               const { value: packetLen, size: s1 } = readVarint(receivedData, off); off += s1;
               if (receivedData.length < off + packetLen) return; // wait for more data
 
+              resolved = true;
               const { size: s2 } = readVarint(receivedData, off); off += s2; // packet id
               const { value: strLen, size: s3 } = readVarint(receivedData, off); off += s3;
               const jsonStr = receivedData.slice(off, off + strLen).toString('utf8');
@@ -626,21 +631,47 @@ function setupIPC() {
               socket.destroy();
 
               const parsed = JSON.parse(jsonStr);
-              const onlineCount = parsed.players?.online || 0;
-              const maxCount = parsed.players?.max || 0;
+              let onlineCount = parsed.players?.online || 0;
+              let maxCount = parsed.players?.max || 0;
+              let playersList = parsed.players?.sample || [];
+
+              // Fetch from Map API to get real player names
+              try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 3000);
+                const mapRes = await fetch('https://map.ptime.pp.ua/up/world/world/0', { signal: controller.signal });
+                clearTimeout(timeoutId);
+                
+                if (mapRes.ok) {
+                  const mapData = await mapRes.json();
+                  if (mapData && Array.isArray(mapData.players)) {
+                    playersList = mapData.players.map(p => ({ name: p.account, id: p.account }));
+                    // Ensure online count isn't smaller than map count
+                    if (playersList.length > onlineCount) onlineCount = playersList.length;
+                  }
+                }
+              } catch (err) {
+                console.error('[Server Query] Map fetch error:', err.message);
+              }
+
+              // If SLP was rate-limited by TCPShield, maxCount might be 0 while Map API found players
+              if (maxCount <= 0 && onlineCount > 0) {
+                maxCount = 100;
+              }
+
               rpcPlayerCountText = `Онлайн: ${onlineCount} / ${maxCount}`;
               updateDiscordPresence();
 
-              const players = parsed.players?.sample || [];
               resolve({
                 online: onlineCount,
                 max: maxCount,
-                players: players.map(p => ({ name: p.name, uuid: p.id })),
+                players: playersList.map(p => ({ name: p.name, uuid: p.id })),
                 motd: typeof parsed.description === 'string' ? parsed.description : (parsed.description?.text || ''),
                 success: true
               });
             } catch (e) {
-              // not enough data yet, wait
+              // not enough data yet, wait (e.g. readVarint threw out of bounds)
+              resolved = false;
             }
           });
         });

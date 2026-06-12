@@ -17,7 +17,8 @@
   <!-- ═══ Titlebar ═══ -->
   <header class="titlebar" id="titlebar">
     <div class="titlebar-brand">
-      <span class="titlebar-logo">☀</span>
+      <img src="../../assets/logo.png" alt="Politime Logo" class="titlebar-logo-img"
+        style="width: 16px; height: 16px; object-fit: contain; vertical-align: middle; margin-right: 6px; filter: drop-shadow(0 0 4px var(--accent-glow));" />
       <span class="titlebar-name">Politime</span>
     </div>
     <div class="titlebar-controls">
@@ -156,7 +157,7 @@
           <div class="control-label">Виберіть збірку</div>
           <div class="build-selector" id="build-selector">
             <button class="build-option" data-build="lite" id="build-lite">
-              <div class="build-icon">🪶</div>
+              <div class="build-icon">🎈</div>
               <div class="build-info">
                 <span class="build-name">Полегшена</span>
                 <span class="build-desc">Для слабких ПК</span>
@@ -250,10 +251,9 @@
     <section class="panel-right">
       <div class="dashboard-card">
         <div class="dash-hero" id="news-container">
-          <div class="dash-badge">ВІДКРИТТЯ</div>
-          <h2>Новий сезон Літа</h2>
-          <p>Поринай у спекотні пригоди! Ми додали нові квести, оновили модифікації та переробили економіку. Сервер вже
-            відкрито.</p>
+          <div class="dash-badge">Новини</div>
+          <h2>Продам гараж</h2>
+          <p>Тут мають бути новини, але чомусь не підвантажило... Чому? 😭</p>
         </div>
 
         <div class="dash-links">
@@ -315,10 +315,15 @@
   <!-- ═══ Welcome Modal (First Run) ═══ -->
   <div class="modal-backdrop" id="welcome-modal" style="display:none">
     <div class="modal welcome-modal">
-      <div class="welcome-header">
+      <div class="welcome-header" style="position: relative;">
         <div class="welcome-emoji">🌅</div>
         <h2 class="welcome-title">Ласкаво просимо!</h2>
         <p class="welcome-sub">Налаштуйте лаунчер перед першою грою.</p>
+        <button class="modal-x" id="btn-welcome-close" style="display: none; position: absolute; top: 12px; right: 16px;">
+          <svg width="14" height="14" viewBox="0 0 11 11">
+            <path d="M1 1l9 9M10 1l-9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          </svg>
+        </button>
       </div>
 
       <div class="welcome-body">
@@ -342,7 +347,7 @@
           <label class="welcome-label">Оберіть збірку</label>
           <div class="welcome-builds">
             <button class="wb-card" data-build="lite" id="wb-lite">
-              <div class="wb-icon">🪶</div>
+              <div class="wb-icon">🎈</div>
               <div class="wb-title">Полегшена</div>
               <div class="wb-desc">Для слабких ПК</div>
             </button>
@@ -411,7 +416,7 @@
           <div class="s-row">
             <span class="s-label">Поточна</span>
             <select id="settings-build" class="s-select">
-              <option value="lite">🪶 Полегшена</option>
+              <option value="lite">🎈 Полегшена</option>
               <option value="full">💎 Повна</option>
             </select>
           </div>
@@ -468,9 +473,10 @@
         <!-- Debug Mode -->
         <div class="s-group debug-group">
           <h3 class="s-group-title" style="color: #f7a072;">Режим розробника (Debug)</h3>
-          <div style="display: flex; gap: 8px;">
-            <button class="btn-secondary" id="btn-debug-update" style="flex:1;">Тест оновлення лаунчера</button>
-            <button class="btn-secondary" id="btn-debug-cache" style="flex:1;">Очистити весь кеш</button>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="btn-secondary" id="btn-debug-update" style="flex: 1; min-width: 140px;">Тест оновлення лаунчера</button>
+            <button class="btn-secondary" id="btn-debug-cache" style="flex: 1; min-width: 140px;">Очистити весь кеш</button>
+            <button class="btn-secondary" id="btn-debug-welcome" style="flex: 1; min-width: 140px;">Тест екрану привітання</button>
           </div>
         </div>
         <!-- Install Directory -->

@@ -101,6 +101,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   const wbLite           = $('#wb-lite');
   const wbFull           = $('#wb-full');
   const welcomeStartBtn  = $('#btn-welcome-start');
+  const welcomeCloseBtn  = $('#btn-welcome-close');
 
   let isLaunching = false;
   let selectedBuild = 'lite';
@@ -271,7 +272,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     playersPopupTitle.textContent = `Гравці онлайн (${serverData.online}/${serverData.max})`;
     if (!serverData.players || serverData.players.length === 0) {
-      playersPopupList.innerHTML = '<div class="players-popup-empty">Ніхто не грає зараз</div>';
+      if (serverData.online > 0) {
+        playersPopupList.innerHTML = '<div class="players-popup-empty">Список гравців приховано сервером</div>';
+      } else {
+        playersPopupList.innerHTML = '<div class="players-popup-empty">Ніхто не грає зараз</div>';
+      }
       return;
     }
     playersPopupList.innerHTML = serverData.players.map(p =>
@@ -596,6 +601,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     setActiveBuild(welcomeBuild);
 
     welcomeModal.style.display = 'none';
+    welcomeCloseBtn.style.display = 'none';
+  });
+
+  welcomeCloseBtn.addEventListener('click', () => {
+    if (window.uiSounds) window.uiSounds.click();
+    welcomeModal.style.display = 'none';
+    welcomeCloseBtn.style.display = 'none';
   });
 
   // ═══ Play Button ═══
@@ -864,6 +876,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (!confirm('Ви впевнені? Це видалить всі конфіги та збереження лаунчера!')) return;
     const r = await window.launcherAPI.debugClearCache();
     if (r) alert('Кеш очищено. Лаунчер буде закрито.');
+  });
+
+  $('#btn-debug-welcome').addEventListener('click', () => {
+    if (window.uiSounds) window.uiSounds.click();
+    closeSettings();
+    welcomeCloseBtn.style.display = 'flex';
+    showWelcome();
   });
   
   $('#btn-open-folder').addEventListener('click', () => {

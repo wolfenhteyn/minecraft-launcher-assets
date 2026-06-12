@@ -6,6 +6,7 @@ const crypto = require('crypto');
 const { execFile } = require('child_process');
 
 const REMOTE_CONFIG_URL = 'https://raw.githubusercontent.com/wolfenhteyn/minecraft-launcher-assets/main/version.json';
+const MODPACK_VERSION_URL = 'https://github.com/lloy9d/polimods/releases/latest/download/version.json';
 const MOJANG_VERSION_MANIFEST = 'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json';
 
 class Updater {
@@ -81,42 +82,86 @@ class Updater {
 
   // ────────────────────────────────────────────────────
   // Fetch version.json from GitHub
+  // Merges two sources:
+  //   1. Launcher config (wolfenhteyn repo): launcher_version, launcher_url,
+  //      forge_url, java_url, force_update
+  //   2. Modpack config (polimods repo): version, minecraft, loader,
+  //      built_at, manifest_hash, checksums → used to build "builds" entries
+  //      with static download URLs
   // ────────────────────────────────────────────────────
   async fetchRemoteConfig() {
-    return new Promise((resolve, reject) => {
-      const protocol = this.remoteConfigUrl.startsWith('https') ? https : http;
+    let launcherCfg = null;
+    let modpackCfg = null;
 
-      protocol.get(this.remoteConfigUrl, {
-        timeout: 15000,
-        headers: { 'User-Agent': 'PolitimeLauncher/1.0' }
-      }, (res) => {
-        if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
-          this._fetchUrl(res.headers.location).then(data => {
-            try {
-              this.remoteConfig = JSON.parse(data);
-              this.saveCachedConfig();
-              resolve(this.remoteConfig);
-            } catch (e) { reject(new Error('Невалідний JSON з сервера')); }
-          }).catch(() => resolve(this.remoteConfig));
-          return;
+    // Fetch launcher config
+    try {
+      const data = await this._fetchUrl(this.remoteConfigUrl);
+      launcherCfg = JSON.parse(data);
+      console.log('[Updater] Launcher config fetched, launcher_version:', launcherCfg.launcher_version);
+    } catch (err) {
+      console.error('[Updater] Failed to fetch launcher config:', err);
+    }
+
+    // Fetch modpack config
+    try {
+      const data = await this._fetchUrl(MODPACK_VERSION_URL);
+      modpackCfg = JSON.parse(data);
+      console.log('[Updater] Modpack config fetched, version:', modpackCfg.version);
+    } catch (err) {
+      console.error('[Updater] Failed to fetch modpack config:', err);
+    }
+
+    if (!launcherCfg && !modpackCfg) {
+      console.warn('[Updater] Both configs failed to fetch, using cached config');
+      return this.remoteConfig;
+    }
+
+    // Build merged config
+    // Start with launcher config as the base (has forge_url, java_url, etc.)
+    const merged = { ...(launcherCfg || this.remoteConfig || {}) };
+
+    if (modpackCfg) {
+      // Override build version / minecraft version from modpack config
+      merged.version = modpackCfg.version;
+      if (modpackCfg.minecraft) merged.minecraft_version = modpackCfg.minecraft;
+      merged.loader = modpackCfg.loader || merged.loader;
+      merged.built_at = modpackCfg.built_at;
+      merged.manifest_hash = modpackCfg.manifest_hash;
+      merged.checksums = modpackCfg.checksums || {};
+
+      // Build the "builds" map using static polimods release URLs.
+      // Key names in checksums map to download URLs:
+      //   poli-lite    → poli-lite.zip
+      //   poli-fusion  → poli-fusion.zip
+      const BASE_URL = 'https://github.com/lloy9d/polimods/releases/latest/download';
+      const BUILD_META = {
+        'poli-lite': {
+          key: 'lite',
+          name: 'Полегшена збірка',
+          description: 'Базові моди та оптимізація. Рекомендовано для слабких ПК.'
+        },
+        'poli-fusion': {
+          key: 'full',
+          name: 'Повна збірка',
+          description: 'Усі модифікації, шейдери та HD текстури. Для потужних ПК.'
         }
+      };
 
-        let data = '';
-        res.on('data', chunk => data += chunk);
-        res.on('end', () => {
-          try {
-            this.remoteConfig = JSON.parse(data);
-            this.saveCachedConfig();
-            resolve(this.remoteConfig);
-          } catch (err) {
-            reject(new Error('Невалідний JSON з сервера конфігурації'));
-          }
-        });
-      }).on('error', (err) => {
-        console.error('Failed to fetch remote config:', err);
-        resolve(this.remoteConfig);
-      });
-    });
+      const builds = {};
+      for (const [zipName, meta] of Object.entries(BUILD_META)) {
+        builds[meta.key] = {
+          name: meta.name,
+          url: `${BASE_URL}/${zipName}.zip`,
+          description: meta.description,
+          checksum: modpackCfg.checksums?.[zipName] || ''
+        };
+      }
+      merged.builds = builds;
+    }
+
+    this.remoteConfig = merged;
+    this.saveCachedConfig();
+    return this.remoteConfig;
   }
 
   // ────────────────────────────────────────────────────
@@ -355,12 +400,14 @@ class Updater {
   // Download and extract the selected modpack build
   //
   // Build switching strategy:
-  //   mods/           ← currently active build (has build.txt + version.txt)
+  //   mods/           ← currently active build (has build.txt + checksum.txt)
   //   mods-lite/      ← stashed lite build
   //   mods-full/      ← stashed full build
   //
+  // Update detection: compares SHA-256 checksum from polimods version.json
+  //   with locally stored checksum.txt — no version string comparison.
   // When switching: mods/ → mods-{old}/, mods-{new}/ → mods/
-  // When downloading: clear mods/, download fresh into it.
+  // When downloading: verify ZIP hash before extracting.
   // ────────────────────────────────────────────────────
   async installModpack(buildKey, onProgress) {
     if (!this.remoteConfig?.builds?.[buildKey]) {
@@ -370,36 +417,42 @@ class Updater {
     const build = this.remoteConfig.builds[buildKey];
     const gameDir = this.configManager.getGameDir();
     const modsDir = this.configManager.getModsDir();
-    const remoteVersion = this.remoteConfig.version || '1.0.0';
+
+    // Remote checksum for this build (from polimods version.json → checksums)
+    const remoteChecksum = build.checksum || '';
 
     // ── 1. Determine what's physically in mods/ right now ──
-    const buildFile = path.join(modsDir, 'build.txt');
-    const versionFile = path.join(modsDir, 'version.txt');
-    let activeBuild = '';
-    let activeVersion = '';
-    if (fs.existsSync(buildFile)) activeBuild = fs.readFileSync(buildFile, 'utf8').trim();
-    if (fs.existsSync(versionFile)) activeVersion = fs.readFileSync(versionFile, 'utf8').trim();
+    const buildFile    = path.join(modsDir, 'build.txt');
+    const checksumFile = path.join(modsDir, 'checksum.txt');
+    let activeBuild    = '';
+    let activeChecksum = '';
+    if (fs.existsSync(buildFile))    activeBuild    = fs.readFileSync(buildFile,    'utf8').trim();
+    if (fs.existsSync(checksumFile)) activeChecksum = fs.readFileSync(checksumFile, 'utf8').trim();
 
-    console.log(`[Updater] installModpack requested=${buildKey} v${remoteVersion}`);
-    console.log(`[Updater]   active in mods/: build=${activeBuild || '(none)'} version=${activeVersion || '(none)'}`);
+    console.log(`[Updater] installModpack requested=${buildKey} checksum=${remoteChecksum.slice(0, 12)}...`);
+    console.log(`[Updater]   active in mods/: build=${activeBuild || '(none)'} checksum=${activeChecksum.slice(0, 12) || '(none)'}`);
 
-    // ── 2. If the correct build+version is already active, do nothing ──
-    if (activeBuild === buildKey && activeVersion === remoteVersion && !this.remoteConfig.force_update) {
-      console.log('[Updater] Correct build already active, nothing to do');
+    // ── 2. If correct build + matching checksum is already active, do nothing ──
+    if (activeBuild === buildKey && activeChecksum === remoteChecksum && remoteChecksum && !this.remoteConfig.force_update) {
+      console.log('[Updater] Checksum matches — build is up to date, nothing to do');
       onProgress({ stage: 'modpack', percent: 100, message: 'Збірка актуальна' });
       return;
     }
 
-    // ── 3. Check if the requested build is stashed (downloaded previously) ──
-    const stashedDir = path.join(gameDir, `mods-${buildKey}`);
-    const stashedVersionFile = path.join(stashedDir, 'version.txt');
-    let stashedVersion = '';
-    if (fs.existsSync(stashedVersionFile)) {
-      stashedVersion = fs.readFileSync(stashedVersionFile, 'utf8').trim();
+    if (activeBuild === buildKey && activeChecksum !== remoteChecksum) {
+      console.log(`[Updater] Checksum mismatch: local=${activeChecksum.slice(0, 12)} remote=${remoteChecksum.slice(0, 12)} — update needed`);
     }
 
-    const canRestoreFromStash = (stashedVersion === remoteVersion) && !this.remoteConfig.force_update;
-    console.log(`[Updater]   stashed ${buildKey}: version=${stashedVersion || '(none)'} canRestore=${canRestoreFromStash}`);
+    // ── 3. Check if the requested build is stashed (downloaded previously) ──
+    const stashedDir          = path.join(gameDir, `mods-${buildKey}`);
+    const stashedChecksumFile = path.join(stashedDir, 'checksum.txt');
+    let stashedChecksum = '';
+    if (fs.existsSync(stashedChecksumFile)) {
+      stashedChecksum = fs.readFileSync(stashedChecksumFile, 'utf8').trim();
+    }
+
+    const canRestoreFromStash = remoteChecksum && (stashedChecksum === remoteChecksum) && !this.remoteConfig.force_update;
+    console.log(`[Updater]   stashed ${buildKey}: checksum=${stashedChecksum.slice(0, 12) || '(none)'} canRestore=${canRestoreFromStash}`);
 
     // ── 4. Stash the currently active build (if any) ──
     if (activeBuild && activeBuild !== buildKey && fs.existsSync(modsDir)) {
@@ -409,39 +462,54 @@ class Updater {
       fs.renameSync(modsDir, currentStash);
     }
 
-    // ── 5a. Restore from stash (instant switch, no download) ──
+    // ── 5a. Restore from stash (instant switch, checksum matches) ──
     if (canRestoreFromStash) {
       onProgress({ stage: 'modpack', percent: 50, message: 'Перемикання збірки...' });
-      console.log(`[Updater]   restoring ${buildKey} from stash`);
-      
-      // Remove current mods/ if it still exists (same build but wrong version)
+      console.log(`[Updater]   restoring ${buildKey} from stash (checksum verified)`);
+
       if (fs.existsSync(modsDir)) fs.rmSync(modsDir, { recursive: true, force: true });
-      
       fs.renameSync(stashedDir, modsDir);
       this.configManager.set('selectedBuild', buildKey);
-      this.configManager.set('installedBuildVersion', remoteVersion);
       onProgress({ stage: 'modpack', percent: 100, message: 'Збірку перемкнуто!' });
       return;
     }
 
-    // ── 5b. Download fresh (no stash or stash is outdated) ──
+    // ── 5b. Download fresh (no stash or stash checksum doesn't match) ──
     console.log(`[Updater]   downloading fresh build ${buildKey}`);
     onProgress({ stage: 'modpack', percent: 5, message: 'Очищення старих модів...' });
-    
-    if (fs.existsSync(modsDir)) fs.rmSync(modsDir, { recursive: true, force: true });
+
+    if (fs.existsSync(modsDir))    fs.rmSync(modsDir,    { recursive: true, force: true });
     if (fs.existsSync(stashedDir)) fs.rmSync(stashedDir, { recursive: true, force: true });
     fs.mkdirSync(modsDir, { recursive: true });
 
-    // Download modpack (global 55-94%)
+    // Download modpack ZIP (progress 55–94%)
     const zipPath = path.join(gameDir, `modpack-${buildKey}.zip`);
     onProgress({ stage: 'modpack', percent: 55, message: `Завантаження збірки: ${build.name}...` });
 
     await this.downloadFileWithProgress(build.url, zipPath, (pct, eta) => {
-      onProgress({ stage: 'modpack', percent: 55 + Math.round(pct * 0.39), message: `Завантаження: ${build.name} — ${pct}%`, eta });
+      onProgress({ stage: 'modpack', percent: 55 + Math.round(pct * 0.34), message: `Завантаження: ${build.name} — ${pct}%`, eta });
     });
     this._checkCancelled();
 
-    // Extract to temp (global 95%)
+    // ── Verify ZIP checksum before extracting ──
+    if (remoteChecksum) {
+      onProgress({ stage: 'modpack', percent: 90, message: 'Перевірка цілісності архіву...' });
+      const zipHash = await this.hashFile(zipPath);
+      console.log(`[Updater] ZIP hash: local=${zipHash.slice(0, 12)} remote=${remoteChecksum.slice(0, 12)}`);
+      if (zipHash !== remoteChecksum) {
+        try { fs.unlinkSync(zipPath); } catch (e) {}
+        throw new Error(
+          `Помилка цілісності збірки: хеш не збігається.\n` +
+          `Очікувано: ${remoteChecksum}\n` +
+          `Отримано:  ${zipHash}`
+        );
+      }
+      console.log('[Updater] ZIP checksum verified ✓');
+    } else {
+      console.warn('[Updater] No remote checksum available, skipping ZIP verification');
+    }
+
+    // Extract to temp (95%)
     onProgress({ stage: 'modpack', percent: 95, message: 'Розпакування модів...' });
     const tempDir = path.join(gameDir, 'temp_extract');
     if (fs.existsSync(tempDir)) fs.rmSync(tempDir, { recursive: true, force: true });
@@ -451,8 +519,8 @@ class Updater {
     // Find the actual mods folder inside the zip
     const actualModsDir = this._findModsFolder(tempDir);
 
-    // Move jar files into modsDir
-    onProgress({ stage: 'modpack', percent: 90, message: 'Встановлення модів...' });
+    // Copy jar files into modsDir
+    onProgress({ stage: 'modpack', percent: 98, message: 'Встановлення модів...' });
     const files = fs.readdirSync(actualModsDir);
     for (const file of files) {
       const src = path.join(actualModsDir, file);
@@ -462,9 +530,9 @@ class Updater {
       }
     }
 
-    // Write tracking files
-    fs.writeFileSync(path.join(modsDir, 'build.txt'), buildKey, 'utf8');
-    fs.writeFileSync(path.join(modsDir, 'version.txt'), remoteVersion, 'utf8');
+    // Write tracking files: build name + verified checksum
+    fs.writeFileSync(path.join(modsDir, 'build.txt'),    buildKey,       'utf8');
+    fs.writeFileSync(path.join(modsDir, 'checksum.txt'), remoteChecksum, 'utf8');
 
     // Cleanup
     try { fs.unlinkSync(zipPath); } catch (e) {}
@@ -472,7 +540,6 @@ class Updater {
 
     // Save to config
     this.configManager.set('selectedBuild', buildKey);
-    this.configManager.set('installedBuildVersion', remoteVersion);
 
     onProgress({ stage: 'modpack', percent: 100, message: 'Збірку встановлено!' });
   }
@@ -585,6 +652,7 @@ class Updater {
     }
 
     const zipPath = path.join(javaDir, 'jre.zip');
+    fs.mkdirSync(javaDir, { recursive: true });
 
     onProgress({ stage: 'java', percent: 5, message: `Завантаження ${javaLabel}...` });
     await this.downloadFileWithProgress(javaUrl, zipPath, (pct, eta) => {

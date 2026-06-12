@@ -1,4 +1,4 @@
-[badge:Лаунчер Politime]
+[badge:Відкриття сезону]
 
 НЕофіційний лаунчер **Politime** уже доступний.
 
@@ -10,4 +10,4 @@
 
 Лаунчер створений для максимально простого та комфортного доступу до **Politime**.
 
-![Лаунчер Politime](https://media.discordapp.net/attachments/1295047353413402637/1500249179824587025/3f1d441f5e02eb59be706d9588247274.jpg?ex=6a0add2d&is=6a098bad&hm=ee220d514fa7546218cdd29d9a7e418259b94ba335a4daa8a17e2904ecdfcc09&=&format=webp)
+![Лаунчер Politime](https://media.discordapp.net/attachments/1418996872844017835/1514940376639864842/image.png?ex=6a2d31ac&is=6a2be02c&hm=b81539535d3246877eef20179bc58da6475d0f175799c13838a5ef6d80cd4cff&=&format=webp&quality=lossless&width=1522&height=856)

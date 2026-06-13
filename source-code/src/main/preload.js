@@ -78,5 +78,11 @@ contextBridge.exposeInMainWorld('launcherAPI', {
   readScreenshot: (filename) => ipcRenderer.invoke('screenshots:read', filename),
   deleteScreenshot: (filename) => ipcRenderer.invoke('screenshots:delete', filename),
   openScreenshotsFolder: () => ipcRenderer.send('screenshots:openFolder'),
-  copyScreenshot: (filename) => ipcRenderer.invoke('screenshots:copy', filename)
+  copyScreenshot: (filename) => ipcRenderer.invoke('screenshots:copy', filename),
+
+  // ── Custom Build / Mod Manager ──
+  getDisabledMods: () => ipcRenderer.invoke('config:getDisabledMods'),
+  setDisabledMods: (mods) => ipcRenderer.invoke('config:setDisabledMods', mods),
+  fetchFusionModList: () => ipcRenderer.invoke('mods:fetchFusionList'),
+  applyDisabledMods: (mods) => ipcRenderer.invoke('mods:applyDisabled', mods)
 });

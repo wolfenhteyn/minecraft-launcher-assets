@@ -54,7 +54,8 @@ class ConfigManager {
       javaPath: '',
       lastVersion: '',
       installedBuildVersion: '', // Track installed modpack version for updates
-      installDir: ''             // Custom install directory (empty = use AppData default)
+      installDir: '',            // Custom install directory (empty = use AppData default)
+      disabledMods: []           // List of mod filenames disabled in 'custom' build
     };
   }
 

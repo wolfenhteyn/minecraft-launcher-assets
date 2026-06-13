@@ -1,6 +1,6 @@
 ; Politime Launcher — Inno Setup Script
 #define MyAppName "Politime Launcher"
-#define MyAppVersion "1.0.8"
+#define MyAppVersion "1.0.9"
 #define MyAppPublisher "Politime"
 #define MyAppURL "https://ptime.pp.ua/"
 #define MyAppExeName "Politime Launcher.exe"

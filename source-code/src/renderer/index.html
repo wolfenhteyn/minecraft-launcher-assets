@@ -170,6 +170,14 @@
                 <span class="build-desc">Для потужних ПК</span>
               </div>
             </button>
+            <button class="build-option build-option-custom" data-build="custom" id="build-custom">
+              <div class="build-icon">🔧</div>
+              <div class="build-info">
+                <span class="build-name">Кастомна</span>
+                <span class="build-desc">Ваш вибір модів</span>
+              </div>
+              <div class="build-custom-badge" id="build-custom-badge"></div>
+            </button>
           </div>
 
           <!-- Username -->
@@ -418,6 +426,7 @@
             <select id="settings-build" class="s-select">
               <option value="lite">🎈 Полегшена</option>
               <option value="full">💎 Повна</option>
+              <option value="custom">🔧 Кастомна</option>
             </select>
           </div>
         </div>
@@ -579,6 +588,53 @@
     </div>
   </div>
 
+
+  <!-- ═══ Mod Manager Modal ═══ -->
+  <div class="modal-backdrop" id="mod-manager-modal" style="display:none">
+    <div class="modal mod-manager-modal">
+      <div class="modal-head">
+        <div class="mod-manager-title-wrap">
+          <span class="mod-manager-icon">🔧</span>
+          <div>
+            <h2>Менеджер модів</h2>
+            <p class="mod-manager-subtitle">Кастомна збірка на базі Повної</p>
+          </div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <button class="btn-secondary btn-small" id="btn-mods-select-all">Увімкнути всі</button>
+          <button class="btn-secondary btn-small" id="btn-mods-deselect-all">Вимкнути всі</button>
+          <button class="modal-x" id="btn-mod-manager-close">
+            <svg width="14" height="14" viewBox="0 0 11 11">
+              <path d="M1 1l9 9M10 1l-9 9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="mod-manager-info" id="mod-manager-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>Вимкнені моди зберігаються між запусками. Повна збірка залишається базою — вимкнені моди переміщуються у .disabled/</span>
+      </div>
+      <div class="modal-body" id="mod-manager-body">
+        <div class="mods-loading" id="mods-loading">
+          <div class="mods-spinner"></div>
+          <span>Завантаження списку модів...</span>
+        </div>
+        <div class="mods-error" id="mods-error" style="display:none">
+          <span>⚠️ Не вдалося завантажити список модів. Перевірте інтернет-з'єднання.</span>
+        </div>
+        <div class="mods-grid" id="mods-grid" style="display:none"></div>
+      </div>
+      <div class="modal-foot mod-manager-foot">
+        <div class="mods-disabled-count" id="mods-disabled-count">Всі моди увімкнені</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-secondary" id="btn-mod-manager-cancel">Скасувати</button>
+          <button class="btn-save" id="btn-mod-manager-apply">Застосувати</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <script src="particles.js"></script>
   <script src="ui-sounds.js"></script>

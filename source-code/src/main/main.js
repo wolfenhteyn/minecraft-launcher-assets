@@ -269,11 +269,11 @@ function setupIPC() {
     try {
       const filePath = path.join(configManager.getGameDir(), 'screenshots', filename);
       if (!fs.existsSync(filePath)) return null;
-      
+
       const ext = path.extname(filename).toLowerCase();
       let mime = 'image/png';
       if (ext === '.jpg' || ext === '.jpeg') mime = 'image/jpeg';
-      
+
       const data = fs.readFileSync(filePath);
       return `data:${mime};base64,${data.toString('base64')}`;
     } catch (err) {
@@ -463,10 +463,32 @@ function setupIPC() {
 
       // Get selected build — THIS is the build user chose in the UI right now
       const selectedBuild = configManager.get('selectedBuild', 'lite');
+      // Custom build uses full (poli-fusion) as base
+      const actualBuildKey = selectedBuild === 'custom' ? 'full' : selectedBuild;
 
       // Check for updates / install forge + modpack
       sendProgress({ stage: 'update', percent: 0, message: 'Перевірка оновлень...' });
-      await updater.checkAndUpdate(selectedBuild, javaResult.path, sendProgress);
+      await updater.checkAndUpdate(actualBuildKey, javaResult.path, sendProgress);
+
+      // If custom build — apply disabled mods after modpack install
+      if (selectedBuild === 'custom') {
+        const disabledMods = configManager.get('disabledMods', []);
+        if (disabledMods.length > 0) {
+          sendProgress({ stage: 'modpack', percent: 99, message: 'Застосування кастомних налаштувань модів...' });
+          const modsDir = configManager.getModsDir();
+          const disabledDir = path.join(modsDir, '.disabled');
+          if (!fs.existsSync(disabledDir)) fs.mkdirSync(disabledDir, { recursive: true });
+          for (const file of disabledMods) {
+            const src = path.join(modsDir, file);
+            if (fs.existsSync(src) && fs.statSync(src).isFile()) {
+              const dst = path.join(disabledDir, file);
+              try { fs.renameSync(src, dst); } catch (e) {
+                console.error('[Mods] Could not disable mod during launch:', file, e);
+              }
+            }
+          }
+        }
+      }
 
       // Get loader (NeoForge/Forge) version from remote config
       const remoteConfig = updater.getRemoteConfig();
@@ -533,14 +555,126 @@ function setupIPC() {
   ipcMain.handle('updater:forceUpdate', async () => {
     try {
       const selectedBuild = configManager.get('selectedBuild', 'lite');
+      // For custom build, force-update underlying full build
+      const actualBuild = selectedBuild === 'custom' ? 'full' : selectedBuild;
       const customJavaPath = configManager.get('javaPath', '');
       const javaResult = await JavaChecker.findJava(customJavaPath);
       if (!javaResult.found) {
         return { success: false, error: 'Java не знайдена' };
       }
-      await updater.forceUpdate(selectedBuild, javaResult.path, sendProgress);
+      await updater.forceUpdate(actualBuild, javaResult.path, sendProgress);
       return { success: true };
     } catch (err) {
+      return { success: false, error: err.message };
+    }
+  });
+
+  // ── Custom Build: Disabled Mods ──
+  ipcMain.handle('config:getDisabledMods', async () => {
+    return configManager.get('disabledMods', []);
+  });
+
+  ipcMain.handle('config:setDisabledMods', async (_e, mods) => {
+    configManager.set('disabledMods', Array.isArray(mods) ? mods : []);
+    return true;
+  });
+
+  // Fetch and parse Fusion mod list from remote modlist.txt
+  ipcMain.handle('mods:fetchFusionList', async () => {
+    const MODLIST_URL = 'https://raw.githubusercontent.com/lloy9d/polimods/refs/heads/main/modlist.txt';
+    try {
+      const text = await new Promise((resolve, reject) => {
+        https.get(MODLIST_URL, { headers: { 'User-Agent': 'PolitimeLauncher/1.0' } }, res => {
+          if (res.statusCode !== 200) { reject(new Error('HTTP ' + res.statusCode)); return; }
+          let data = '';
+          res.on('data', c => data += c);
+          res.on('end', () => resolve(data));
+        }).on('error', reject);
+      });
+
+      // Parse lines between # POLI FUSION section and the next # section
+      const lines = text.split('\n');
+      let inFusion = false;
+      const mods = [];
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('#')) {
+          if (/POLI FUSION/i.test(trimmed)) {
+            inFusion = true;
+          } else if (inFusion && /POLI /i.test(trimmed) && !/POLI FUSION/i.test(trimmed)) {
+            inFusion = false; // another POLI section
+          }
+          continue;
+        }
+        if (!inFusion || !trimmed) continue;
+
+        // Format: Mod Name | Version | URL
+        const parts = trimmed.split('|');
+        if (parts.length >= 2) {
+          const name = parts[0].replace(/\[CF\]/gi, '').trim();
+          const version = parts[1].trim();
+          const url = parts[2] ? parts[2].trim() : '';
+          // Extract filename from URL
+          let filename = '';
+          if (url) {
+            try {
+              const decoded = decodeURIComponent(url);
+              filename = decoded.split('/').pop().split('?')[0];
+            } catch (e) {
+              filename = url.split('/').pop();
+            }
+          }
+          if (name) mods.push({ name, version, filename });
+        }
+      }
+
+      return { success: true, mods };
+    } catch (err) {
+      console.error('[FusionMods] Failed to fetch modlist:', err);
+      return { success: false, error: err.message, mods: [] };
+    }
+  });
+
+  // Apply disabled mods: move .jar files between mods/ and mods/.disabled/
+  ipcMain.handle('mods:applyDisabled', async (_e, disabledFilenames) => {
+    try {
+      const modsDir = configManager.getModsDir();
+      const disabledDir = path.join(modsDir, '.disabled');
+      if (!fs.existsSync(disabledDir)) fs.mkdirSync(disabledDir, { recursive: true });
+
+      const disabled = new Set(Array.isArray(disabledFilenames) ? disabledFilenames : []);
+
+      // Re-enable previously disabled mods that are no longer in the disabled list
+      if (fs.existsSync(disabledDir)) {
+        for (const file of fs.readdirSync(disabledDir)) {
+          if (!file.endsWith('.jar')) continue;
+          if (!disabled.has(file)) {
+            // Move back to mods/
+            const src = path.join(disabledDir, file);
+            const dst = path.join(modsDir, file);
+            try { fs.renameSync(src, dst); } catch (e) {
+              console.error('[Mods] Failed to re-enable mod:', file, e);
+            }
+          }
+        }
+      }
+
+      // Disable mods that should be disabled
+      for (const file of disabled) {
+        const src = path.join(modsDir, file);
+        if (fs.existsSync(src) && fs.statSync(src).isFile()) {
+          const dst = path.join(disabledDir, file);
+          try { fs.renameSync(src, dst); } catch (e) {
+            console.error('[Mods] Failed to disable mod:', file, e);
+          }
+        }
+      }
+
+      configManager.set('disabledMods', [...disabled]);
+      return { success: true };
+    } catch (err) {
+      console.error('[Mods] applyDisabled error:', err);
       return { success: false, error: err.message };
     }
   });
@@ -581,104 +715,43 @@ function setupIPC() {
     };
   });
 
-  // ── Server Query (Minecraft SLP) ──
+  // ── Server Query (Minecraft SLP / Map Fallback) ──
   ipcMain.handle('server:query', async () => {
-    return new Promise((resolve) => {
-      const host = 'tcpshield.ptime.pp.ua';
-      const port = 25565;
-      const handshakeHost = 'ptime.pp.ua';
-      const timeout = 5000;
-
+    return new Promise(async (resolve) => {
       try {
-        const socket = net.createConnection({ host, port, timeout }, () => {
-          // Handshake packet
-          const hostBuf = Buffer.from(handshakeHost, 'utf8');
-          const dataLength = 1 + varintSize(767) + varintSize(hostBuf.length) + hostBuf.length + 2 + 1;
-          const handshake = Buffer.alloc(varintSize(dataLength) + dataLength);
-          let offset = 0;
-          offset = writeVarint(handshake, dataLength, offset);
-          offset = writeVarint(handshake, 0x00, offset); // packet id
-          offset = writeVarint(handshake, 767, offset);    // protocol version
-          offset = writeVarint(handshake, hostBuf.length, offset);
-          hostBuf.copy(handshake, offset); offset += hostBuf.length;
-          handshake.writeUInt16BE(25565, offset); offset += 2;
-          offset = writeVarint(handshake, 1, offset); // next state = status
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const mapRes = await fetch('https://map.ptime.pp.ua/up/world/world/0', { signal: controller.signal });
+        clearTimeout(timeoutId);
 
-          // Status request packet
-          const statusReq = Buffer.from([0x01, 0x00]);
+        if (mapRes.ok) {
+          const mapData = await mapRes.json();
+          let onlineCount = 0;
+          let playersList = [];
+          
+          if (mapData && Array.isArray(mapData.players)) {
+            playersList = mapData.players.map(p => ({ name: p.account, id: p.account }));
+            onlineCount = playersList.length;
+          }
 
-          socket.write(handshake);
-          socket.write(statusReq);
+          const maxCount = 100;
 
-          let receivedData = Buffer.alloc(0);
+          rpcPlayerCountText = `Онлайн: ${onlineCount} / ${maxCount}`;
+          updateDiscordPresence();
 
-          let resolved = false;
-
-          socket.on('data', async (chunk) => {
-            if (resolved) return;
-            receivedData = Buffer.concat([receivedData, chunk]);
-
-            try {
-              let off = 0;
-              const { value: packetLen, size: s1 } = readVarint(receivedData, off); off += s1;
-              if (receivedData.length < off + packetLen) return; // wait for more data
-
-              resolved = true;
-              const { size: s2 } = readVarint(receivedData, off); off += s2; // packet id
-              const { value: strLen, size: s3 } = readVarint(receivedData, off); off += s3;
-              const jsonStr = receivedData.slice(off, off + strLen).toString('utf8');
-
-              socket.destroy();
-
-              const parsed = JSON.parse(jsonStr);
-              let onlineCount = parsed.players?.online || 0;
-              let maxCount = parsed.players?.max || 0;
-              let playersList = parsed.players?.sample || [];
-
-              // Fetch from Map API to get real player names
-              try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 3000);
-                const mapRes = await fetch('https://map.ptime.pp.ua/up/world/world/0', { signal: controller.signal });
-                clearTimeout(timeoutId);
-                
-                if (mapRes.ok) {
-                  const mapData = await mapRes.json();
-                  if (mapData && Array.isArray(mapData.players)) {
-                    playersList = mapData.players.map(p => ({ name: p.account, id: p.account }));
-                    // Ensure online count isn't smaller than map count
-                    if (playersList.length > onlineCount) onlineCount = playersList.length;
-                  }
-                }
-              } catch (err) {
-                console.error('[Server Query] Map fetch error:', err.message);
-              }
-
-              // If SLP was rate-limited by TCPShield, maxCount might be 0 while Map API found players
-              if (maxCount <= 0 && onlineCount > 0) {
-                maxCount = 100;
-              }
-
-              rpcPlayerCountText = `Онлайн: ${onlineCount} / ${maxCount}`;
-              updateDiscordPresence();
-
-              resolve({
-                online: onlineCount,
-                max: maxCount,
-                players: playersList.map(p => ({ name: p.name, uuid: p.id })),
-                motd: typeof parsed.description === 'string' ? parsed.description : (parsed.description?.text || ''),
-                success: true
-              });
-            } catch (e) {
-              // not enough data yet, wait (e.g. readVarint threw out of bounds)
-              resolved = false;
-            }
+          resolve({
+            success: true,
+            online: onlineCount,
+            max: maxCount,
+            players: playersList
           });
-        });
-
-        socket.on('timeout', () => { socket.destroy(); resolve({ success: false, online: 0, max: 0, players: [] }); });
-        socket.on('error', () => { socket.destroy(); resolve({ success: false, online: 0, max: 0, players: [] }); });
-      } catch (e) {
+        } else {
+          throw new Error('Map HTTP ' + mapRes.status);
+        }
+      } catch (err) {
+        console.error('[Server Query] Map fetch error:', err.message);
+        rpcPlayerCountText = '';
+        updateDiscordPresence();
         resolve({ success: false, online: 0, max: 0, players: [] });
       }
     });

@@ -83,6 +83,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   const btnCancel        = $('#btn-cancel-download');
   const buildLite        = $('#build-lite');
   const buildFull        = $('#build-full');
+  const buildCustom      = $('#build-custom');
+  const buildCustomBadge = $('#build-custom-badge');
 
   // Settings
   const settingsModal    = $('#settings-modal');
@@ -178,11 +180,17 @@ document.addEventListener('DOMContentLoaded', async () => {
     selectedBuild = build;
     buildLite.classList.toggle('active', build === 'lite');
     buildFull.classList.toggle('active', build === 'full');
+    buildCustom.classList.toggle('active', build === 'custom');
     window.launcherAPI.setSelectedBuild(build);
   }
 
   buildLite.addEventListener('click', () => { setActiveBuild('lite'); if (window.uiSounds) window.uiSounds.click(); });
   buildFull.addEventListener('click', () => { setActiveBuild('full'); if (window.uiSounds) window.uiSounds.click(); });
+  buildCustom.addEventListener('click', () => {
+    setActiveBuild('custom');
+    if (window.uiSounds) window.uiSounds.click();
+    openModManager();
+  });
 
   // ── Load saved state ──
   async function init() {
@@ -1320,6 +1328,216 @@ document.addEventListener('DOMContentLoaded', async () => {
       if (e.key === 'Escape') {
         screenshotsModal.style.display = 'none';
       }
+    } else if (modManagerModal && modManagerModal.style.display === 'flex') {
+      if (e.key === 'Escape') {
+        closeModManager();
+      }
     }
   });
+
+  // ═══ Mod Manager ═══
+  const modManagerModal   = $('#mod-manager-modal');
+  const modsGrid          = $('#mods-grid');
+  const modsLoading       = $('#mods-loading');
+  const modsError         = $('#mods-error');
+  const modsDisabledCount = $('#mods-disabled-count');
+  const btnModsSelectAll  = $('#btn-mods-select-all');
+  const btnModsDeselectAll = $('#btn-mods-deselect-all');
+  const btnModManagerClose  = $('#btn-mod-manager-close');
+  const btnModManagerCancel = $('#btn-mod-manager-cancel');
+  const btnModManagerApply  = $('#btn-mod-manager-apply');
+
+  let fusionModList = [];          // { name, version, filename }
+  let pendingDisabled = new Set(); // filenames currently pending in UI
+
+  // Mod icons based on keywords in mod name
+  function getModIcon(name) {
+    const n = name.toLowerCase();
+    if (n.includes('shader') || n.includes('iris'))         return '🌈';
+    if (n.includes('map') || n.includes('minimap'))         return '🗺️';
+    if (n.includes('sound') || n.includes('ambient'))       return '🔊';
+    if (n.includes('voice'))                                return '🎙️';
+    if (n.includes('skin'))                                 return '👤';
+    if (n.includes('chat') || n.includes('head'))           return '💬';
+    if (n.includes('dynamic') || n.includes('light'))       return '💡';
+    if (n.includes('fps') || n.includes('optim'))           return '⚡';
+    if (n.includes('f3') || n.includes('betterf'))          return '🔍';
+    if (n.includes('third') || n.includes('person'))        return '🎥';
+    if (n.includes('rei') || n.includes('jei') || n.includes('recipe')) return '📖';
+    if (n.includes('reani') || n.includes('animation'))    return '🎭';
+    if (n.includes('presence') || n.includes('footstep'))  return '👣';
+    if (n.includes('advancement') || n.includes('plaque'))  return '🏆';
+    if (n.includes('continuity') || n.includes('connect'))  return '🔗';
+    if (n.includes('distant') || n.includes('horizon'))     return '🏔️';
+    if (n.includes('music') || n.includes('notif'))         return '🎵';
+    if (n.includes('jade') || n.includes('waila'))         return '🔎';
+    if (n.includes('immersive'))                            return '🌍';
+    return '🧩';
+  }
+
+  function updateModBadge() {
+    const count = pendingDisabled.size;
+    if (count > 0) {
+      buildCustomBadge.textContent = count + ' off';
+      buildCustomBadge.classList.add('visible');
+    } else {
+      buildCustomBadge.classList.remove('visible');
+    }
+  }
+
+  function updateDisabledCount() {
+    const total = fusionModList.length;
+    const dis = pendingDisabled.size;
+    if (dis === 0) {
+      modsDisabledCount.textContent = 'Всі моди увімкнені';
+    } else {
+      modsDisabledCount.textContent = `Вимкнено: ${dis} з ${total}`;
+    }
+  }
+
+  function renderModsGrid() {
+    modsGrid.innerHTML = '';
+    for (const mod of fusionModList) {
+      const isEnabled = !pendingDisabled.has(mod.filename);
+      const card = document.createElement('div');
+      card.className = `mod-card ${isEnabled ? 'enabled' : 'disabled-mod'}`;
+      card.dataset.filename = mod.filename;
+      card.innerHTML = `
+        <div class="mod-card-icon">${getModIcon(mod.name)}</div>
+        <div class="mod-card-info">
+          <div class="mod-card-name" title="${mod.name}">${mod.name}</div>
+          <div class="mod-card-version">${mod.version || ''}</div>
+        </div>
+        <label class="mod-toggle" onclick="event.stopPropagation()">
+          <input type="checkbox" ${isEnabled ? 'checked' : ''} data-filename="${mod.filename}">
+          <span class="mod-toggle-slider"></span>
+        </label>
+      `;
+
+      const checkbox = card.querySelector('input[type=checkbox]');
+      const toggleState = () => {
+        if (checkbox.checked) {
+          pendingDisabled.delete(mod.filename);
+          card.className = 'mod-card enabled';
+        } else {
+          pendingDisabled.add(mod.filename);
+          card.className = 'mod-card disabled-mod';
+        }
+        updateDisabledCount();
+      };
+
+      checkbox.addEventListener('change', toggleState);
+      // Click on card body also toggles
+      card.addEventListener('click', (e) => {
+        if (e.target.tagName === 'INPUT') return;
+        checkbox.checked = !checkbox.checked;
+        toggleState();
+      });
+
+      modsGrid.appendChild(card);
+    }
+    updateDisabledCount();
+  }
+
+  async function openModManager() {
+    modManagerModal.style.display = 'flex';
+    if (window.uiSounds) window.uiSounds.modalOpen();
+
+    // Load saved disabled mods
+    const savedDisabled = await window.launcherAPI.getDisabledMods();
+    pendingDisabled = new Set(savedDisabled || []);
+
+    // If we already have the mod list cached, just render
+    if (fusionModList.length > 0) {
+      modsLoading.style.display = 'none';
+      modsError.style.display = 'none';
+      modsGrid.style.display = 'grid';
+      renderModsGrid();
+      return;
+    }
+
+    // Fetch from remote
+    modsLoading.style.display = 'flex';
+    modsError.style.display = 'none';
+    modsGrid.style.display = 'none';
+
+    try {
+      const result = await window.launcherAPI.fetchFusionModList();
+      if (result.success && result.mods && result.mods.length > 0) {
+        fusionModList = result.mods;
+        modsLoading.style.display = 'none';
+        modsGrid.style.display = 'grid';
+        renderModsGrid();
+      } else {
+        modsLoading.style.display = 'none';
+        modsError.style.display = 'block';
+      }
+    } catch (e) {
+      console.error('Failed to load fusion mods:', e);
+      modsLoading.style.display = 'none';
+      modsError.style.display = 'block';
+    }
+  }
+
+  function closeModManager() {
+    modManagerModal.style.display = 'none';
+  }
+
+  btnModManagerClose.addEventListener('click', closeModManager);
+  btnModManagerCancel.addEventListener('click', () => {
+    if (window.uiSounds) window.uiSounds.click();
+    closeModManager();
+  });
+
+  modManagerModal.addEventListener('click', e => {
+    if (e.target === modManagerModal) closeModManager();
+  });
+
+  btnModsSelectAll.addEventListener('click', () => {
+    if (window.uiSounds) window.uiSounds.click();
+    pendingDisabled.clear();
+    renderModsGrid();
+  });
+
+  btnModsDeselectAll.addEventListener('click', () => {
+    if (window.uiSounds) window.uiSounds.click();
+    fusionModList.forEach(mod => pendingDisabled.add(mod.filename));
+    renderModsGrid();
+  });
+
+  btnModManagerApply.addEventListener('click', async () => {
+    if (window.uiSounds) window.uiSounds.click();
+    const disabledArr = [...pendingDisabled];
+
+    // Save to config
+    await window.launcherAPI.setDisabledMods(disabledArr);
+
+    // Update badge on custom build button
+    updateModBadge();
+
+    // Apply physically if mods dir exists (game not running)
+    try {
+      await window.launcherAPI.applyDisabledMods(disabledArr);
+    } catch (e) {
+      console.warn('[ModManager] applyDisabledMods failed (mods not installed yet):', e);
+    }
+
+    closeModManager();
+
+    // Ensure custom build is selected
+    if (selectedBuild !== 'custom') {
+      setActiveBuild('custom');
+    }
+  });
+
+  // Init badge on load
+  (async () => {
+    try {
+      const saved = await window.launcherAPI.getDisabledMods();
+      if (saved && saved.length > 0) {
+        pendingDisabled = new Set(saved);
+        updateModBadge();
+      }
+    } catch (e) {}
+  })();
 });

@@ -10,4 +10,4 @@
 
 Лаунчер створений для максимально простого та комфортного доступу до **Politime**.
 
-![Лаунчер Politime](https://media.discordapp.net/attachments/1418996872844017835/1514940376639864842/image.png?ex=6a2d31ac&is=6a2be02c&hm=b81539535d3246877eef20179bc58da6475d0f175799c13838a5ef6d80cd4cff&=&format=webp&quality=lossless&width=1522&height=856)
+![Лаунчер Politime](https://cdn.discordapp.com/attachments/1418996872844017835/1514940376639864842/image.png?ex=6a2e832c&is=6a2d31ac&hm=cb5735fd017c8f81656c9e48fbc1c144396bd9eb6ec3b49ae645092632132c43&)

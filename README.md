@@ -15,7 +15,7 @@
 
 ### 📥 [Завантажити Politime Launcher (Windows .exe)](https://github.com/wolfenhteyn/minecraft-launcher-assets/releases/latest/download/LauncherSetup.exe)
 
-[Офіційний сайт](https://ptime.pp.ua) • [Веб-портал](https://web.ptime.pp.ua)
+[Офіційний сайт](https://web.ptime.pp.ua)
 
 </div>
 
@@ -27,7 +27,7 @@
 
 ---
 
-## 📸 Скриншоти інтерфейсу
+## 📸 Скриншот інтерфейсу
 
 <div align="center">
 
@@ -119,8 +119,7 @@
 
 ## 🔗 Посилання
 
-- **Офіційний сайт:** [ptime.pp.ua](https://ptime.pp.ua)
-- **Веб-портал:** [web.ptime.pp.ua](https://web.ptime.pp.ua)
+- **Офіційний сайт** [web.ptime.pp.ua](https://web.ptime.pp.ua)
 - **IP Сервера:** `play.ptime.pp.ua`
 
 ---

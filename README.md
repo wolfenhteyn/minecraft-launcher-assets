@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Politime Launcher Banner](source-code/assets/background.png)
+![Politime Launcher Banner](https://cdn.discordapp.com/attachments/1109536229470511195/1529222131592990831/logo.png?ex=6a612697&is=6a5fd517&hm=041cd10acca64d303a127512da9692b5c60f5035f5871568d9e42a48e8cfc7b9&)
 
 **Кастомний лаунчер Minecraft для проєкту Politime**
 
@@ -31,7 +31,7 @@
 
 <div align="center">
 
-![Головний екран лаунчера](https://cdn.discordapp.com/attachments/1418996872844017835/1514940376639864842/image.png?ex=6a2e832c&is=6a2d31ac&hm=cb5735fd017c8f81656c9e48fbc1c144396bd9eb6ec3b49ae645092632132c43&)
+![Головний екран лаунчера](https://media.discordapp.net/attachments/875663687313133608/1529222509864423638/image.png?ex=6a6126f1&is=6a5fd571&hm=8112e8ae5987c4a7c79b12756905b9a4ade6c971bc63704364a4b853a44ad01e&=&format=webp&quality=lossless)
 
 </div>
 
